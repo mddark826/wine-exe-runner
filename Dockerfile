@@ -4,7 +4,7 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
     WINEPREFIX=/home/wineuser/.wine \
-    WINEDEBUG=-all
+    WINEDEBUG=fixme-all,+err
 
 # WineHQ (32-bit + 64-bit Wine) + virtual display + VNC + noVNC web client
 RUN dpkg --add-architecture i386 && \
