@@ -4,7 +4,9 @@ FROM debian:bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive \
     DISPLAY=:99 \
     WINEPREFIX=/home/wineuser/.wine \
-    WINEDEBUG=fixme-all,+err
+    WINEDEBUG=fixme-all,+err \
+    LANG=zh_CN.UTF-8 \
+    LC_ALL=zh_CN.UTF-8
 
 # WineHQ (32-bit + 64-bit Wine) + virtual display + VNC + noVNC web client
 RUN dpkg --add-architecture i386 && \
@@ -16,7 +18,10 @@ RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --install-recommends winehq-stable && \
     apt-get install -y --no-install-recommends \
-        xvfb x11vnc novnc websockify curl cabextract x11-utils procps p7zip-full && \
+        xvfb x11vnc novnc websockify curl cabextract x11-utils procps p7zip-full \
+        fonts-wqy-zenhei fonts-wqy-microhei locales && \
+    sed -i 's/# zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen zh_CN.UTF-8 && \
     wget -O /usr/local/bin/winetricks https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks && \
     chmod +x /usr/local/bin/winetricks && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
