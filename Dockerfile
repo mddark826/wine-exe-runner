@@ -16,7 +16,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --install-recommends winehq-stable && \
     apt-get install -y --no-install-recommends \
-        xvfb x11vnc novnc websockify curl cabextract && \
+        xvfb x11vnc novnc websockify curl cabextract x11-utils procps && \
     wget -O /usr/local/bin/winetricks https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks && \
     chmod +x /usr/local/bin/winetricks && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
