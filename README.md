@@ -20,9 +20,11 @@ Service → **Variables** → add `APP_URL` = direct download link of your `.exe
 (e.g. `https://example.com/myapp.exe`), then **Redeploy**. The container downloads
 it on startup and launches it under Wine.
 
-**Option B — bake into the image:**
-Put your file at `app/app.exe` in this repo, uncomment the two `COPY` lines in the
-`Dockerfile`, commit, and Railway rebuilds automatically.
+**Option B — baked into the image at build time:**
+The `Dockerfile` already downloads the `.exe` during the image build (see the
+`curl` step in it). To use a different `.exe`, change that URL and push — Railway
+rebuilds automatically. This also helps on Railway accounts with restricted
+outbound network, where the runtime download cannot reach the internet.
 
 ## How it works
 
