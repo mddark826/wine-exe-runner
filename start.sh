@@ -48,6 +48,17 @@ else
   ( wine explorer 2>&1 | tee /tmp/app.log ) &
 fi
 
+# Diagnostic loop: every 60s log processes + X window tree (10 rounds).
+# Shows in container logs; tells us if the app created any window at all.
+( for i in $(seq 1 10); do
+    sleep 60
+    echo "=== DIAG $i ==="
+    echo "--- wine processes ---"
+    ps aux | grep -E "wine|app\.exe" | grep -v grep | awk '{print $2, $11, $12, $13}' | head -15
+    echo "--- X windows on :99 ---"
+    xwininfo -root -tree 2>&1 | grep -E "0x[0-9a-f]+" | head -25
+  done ) &
+
 PORT=${PORT:-8080}
 echo "Serving noVNC on port $PORT - open the Railway public domain in your browser."
 exec websockify --web /usr/share/novnc "$PORT" localhost:5900
