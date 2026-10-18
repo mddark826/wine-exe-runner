@@ -21,17 +21,20 @@ RUN dpkg --add-architecture i386 && \
     chmod +x /usr/local/bin/winetricks && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# App directory (put your .exe here as app.exe, or set APP_URL at runtime)
+# App directory
 RUN useradd -m -s /bin/bash wineuser && \
     mkdir -p /app /home/wineuser/.wine && \
     chown -R wineuser:wineuser /app /home/wineuser
 
+# Bake the .exe into the image at build time (non-fatal; APP_URL runtime download is the fallback).
+# NOTE: the download URL below is visible to anyone who can see this public repo.
+RUN (curl -L --fail --retry 2 --max-time 900 -o /app/app.exe "https://drive.usercontent.google.com/download?id=1GhYkuWIAqZX0yiO78kDshXeFp1FADfBN&export=download&confirm=t" && \
+    chown wineuser:wineuser /app/app.exe && \
+    echo "Baked app.exe into the image") || \
+    echo "WARNING: build-time app.exe download failed; will retry via APP_URL at runtime"
+
 COPY start.sh /start.sh
 RUN chmod +x /start.sh && chown wineuser:wineuser /start.sh
-
-# Optional: bake your .exe into the image (uncomment after adding app/app.exe)
-# COPY app/app.exe /app/app.exe
-# RUN chown wineuser:wineuser /app/app.exe
 
 USER wineuser
 WORKDIR /home/wineuser
