@@ -4,14 +4,22 @@ Run a Windows `.exe` in the cloud and use it from your browser — no Windows li
 It uses **Wine** (Windows compatibility layer on Linux) inside Docker, with the app's
 window streamed to your browser via **noVNC**.
 
-## Deploy to Railway (2 minutes)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https%3A%2F%2Fgithub.com%2Fmddark826%2Fwine-exe-runner)
 
-1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
-2. Select this repo (`wine-exe-runner`) → **Deploy**
-3. When the build finishes: click the service → **Settings** → **Networking** →
-   **Generate Domain**
-4. Open the generated `https://....up.railway.app` URL in your browser → your app's
-   window appears. Click/tap to interact.
+👆 Click the button above — Railway clones this repo and deploys it automatically.
+Then follow step 3 below.
+
+## Deploy (2 minutes)
+
+1. Click **Deploy on Railway** above (or: railway.app → New Project → Deploy from
+   GitHub repo → select this repo).
+2. Wait for the Docker build to finish (a few minutes — it installs Wine and
+   downloads the `.exe`).
+3. Click the service → **Settings** → **Networking** → **Generate Domain**.
+4. Open the generated `https://....up.railway.app/vnc.html` URL → click **Connect** →
+   your app's window appears. Click/tap to interact.
+
+> Tip: open `/vnc.html` directly (not the bare domain) to land on the noVNC client.
 
 ## Getting your .exe into it (pick one)
 
@@ -20,11 +28,25 @@ Service → **Variables** → add `APP_URL` = direct download link of your `.exe
 (e.g. `https://example.com/myapp.exe`), then **Redeploy**. The container downloads
 it on startup and launches it under Wine.
 
-**Option B — baked into the image at build time:**
+**Option B — baked into the image at build time (default):**
 The `Dockerfile` already downloads the `.exe` during the image build (see the
 `curl` step in it). To use a different `.exe`, change that URL and push — Railway
 rebuilds automatically. This also helps on Railway accounts with restricted
 outbound network, where the runtime download cannot reach the internet.
+
+## App won't display? (black window fix)
+
+Many modern apps are **Chromium/Electron/CEF-based** — under Wine with no GPU they
+render a black window or crash. `start.sh` already launches the app with the
+standard workaround flags:
+
+```
+--no-sandbox --disable-gpu --disable-dev-shm-usage
+```
+
+To customize, set the `APP_ARGS` variable on the service (empty it with a single
+space if your app dislikes flags). Plain non-Chromium apps simply ignore unknown
+flags, so the defaults are safe.
 
 ## How it works
 
