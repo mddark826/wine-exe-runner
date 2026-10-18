@@ -7,11 +7,16 @@ export WINEPREFIX=/home/wineuser/.wine
 
 mkdir -p /app
 
-# Fetch the .exe at runtime if APP_URL is set and no app.exe exists yet
+# Fetch the .exe at runtime if APP_URL is set and no app.exe exists yet.
+# Non-fatal: a failed download must never kill the container (would cause a crash loop).
 if [ ! -f /app/app.exe ] && [ -n "$APP_URL" ]; then
   echo "Downloading app.exe from APP_URL..."
-  curl -L --fail --retry 3 -o /app/app.exe "$APP_URL"
-  echo "Download complete."
+  if curl -L --fail --retry 3 --max-time 900 -o /app/app.exe "$APP_URL"; then
+    echo "Download complete."
+  else
+    echo "WARNING: app.exe download failed; continuing without it."
+    rm -f /app/app.exe
+  fi
 fi
 
 # Initialize the Wine prefix on first run
@@ -32,7 +37,7 @@ if [ -f /app/app.exe ]; then
   echo "Launching app.exe under Wine..."
   wine /app/app.exe >/tmp/app.log 2>&1 &
 else
-  echo "No app.exe found: opening Wine Explorer. Set the APP_URL variable or add app/app.exe and redeploy."
+  echo "No app.exe found: opening Wine Explorer. Set the APP_URL variable or bake app.exe into the image and redeploy."
   wine explorer >/tmp/app.log 2>&1 &
 fi
 
