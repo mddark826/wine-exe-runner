@@ -1,80 +1,66 @@
-# .exe Runner on Railway (Wine + noVNC)
+# Lightweight .exe Runner on Railway / Render (Wine + noVNC)
 
-Run a Windows `.exe` in the cloud and use it from your browser — no Windows license needed.
-It uses **Wine** (Windows compatibility layer on Linux) inside Docker, with the app's
-window streamed to your browser via **noVNC**.
+Run a **lightweight** Windows `.exe` in the cloud and use it from your browser.
+Uses **Wine** on Linux inside Docker; the app's window is streamed to your browser
+via **noVNC**. No Windows license needed.
+
+> **Scope:** simple Win32 GUI utilities (PuTTY, Notepad++, small tools).
+> Heavy Chromium/Electron apps, games, and anything needing drivers/anticheat
+> will not work reliably under Wine — see *Limitations* below.
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https%3A%2F%2Fgithub.com%2Fmddark826%2Fwine-exe-runner)
 
-👆 Click the button above — Railway clones this repo and deploys it automatically.
-Then follow step 3 below.
+## Deploy
 
-## Deploy (2 minutes)
+**Railway** (recommended — no sleep on trial, 0.5GB RAM per service is enough):
+1. Click **Deploy on Railway** above, or: railway.app → New Project → Deploy from GitHub repo → select this repo.
+2. Wait for the Docker build (~3-5 min).
+3. Service → **Variables** → add `APP_URL` = direct download link of your `.exe`
+   (must be a **direct** link, not a Google Drive preview page).
+4. Service → **Settings** → **Networking** → **Generate Domain**.
+5. Open `https://....up.railway.app/vnc.html` → click **Connect** → your app appears.
 
-1. Click **Deploy on Railway** above (or: railway.app → New Project → Deploy from
-   GitHub repo → select this repo).
-2. Wait for the Docker build to finish (a few minutes — it installs Wine and
-   downloads the `.exe`).
-3. Click the service → **Settings** → **Networking** → **Generate Domain**.
-4. Open the generated `https://....up.railway.app/vnc.html` URL → click **Connect** →
-   your app's window appears. Click/tap to interact.
+**Render** (free, no card — but sleeps after 15 min idle):
+1. render.com → New → Web Service → connect this repo (Docker runtime auto-detected).
+2. Add environment variable `APP_URL` = direct `.exe` link.
+3. Deploy, open the `https://....onrender.com/vnc.html` URL → **Connect**.
+4. Note: free services sleep after 15 min idle; first load after sleep takes ~60s.
 
-> Tip: open `/vnc.html` directly (not the bare domain) to land on the noVNC client.
+## Configuration (environment variables)
 
-## Getting your .exe into it (pick one)
+| Variable  | Required | Purpose |
+|-----------|----------|---------|
+| `APP_URL` | Yes (or bake the exe) | Direct download URL of the `.exe` |
+| `APP_EXE` | No | Path of exe to run (default `/app/app.exe`) |
+| `APP_ARGS`| No | Extra CLI flags (default `--no-sandbox --disable-gpu --disable-dev-shm-usage`, helps Chromium-based apps; ignored by others) |
 
-**Option A — download link (easiest, no rebuild):**
-Service → **Variables** → add `APP_URL` = direct download link of your `.exe`
-(e.g. `https://example.com/myapp.exe`), then **Redeploy**. The container downloads
-it on startup and launches it under Wine.
+Alternative: bake the `.exe` into the image — uncomment the `curl` step in the
+`Dockerfile`, set your URL, push.
 
-**Option B — baked into the image at build time (default):**
-The `Dockerfile` downloads the **full official Traffic Spirit package**
-(`ipts.7z` from ipts.com — exe + support files) during the image build and
-extracts it to `/app/ipts/`. To use a different `.exe`, change that URL and push —
-Railway rebuilds automatically. This also helps on Railway accounts with restricted
-outbound network, where the runtime download cannot reach the internet.
+## Verified working (tested under Wine + Xvfb headless)
 
-## App won't display? (black window fix)
+- **Notepad++** portable (x64) — window renders, no errors ✅
+- **PuTTY** (x64) — launches ✅
 
-Many modern apps are **Chromium/Electron/CEF-based** — under Wine with no GPU they
-render a black window or crash. `start.sh` already launches the app with the
-standard workaround flags:
+## Known NOT working
 
-```
---no-sandbox --disable-gpu --disable-dev-shm-usage
-```
-
-To customize, set the `APP_ARGS` variable on the service (empty it with a single
-space if your app dislikes flags). Plain non-Chromium apps simply ignore unknown
-flags, so the defaults are safe.
+- **Traffic Spirit** (Chromium-based, 142MB) — crashes under Wine with a page
+  fault; app-specific incompatibility, not an infra problem.
 
 ## How it works
 
 ```
-browser ──HTTPS──> Railway ──> noVNC (websockify :$PORT) ──> x11vnc ──> Xvfb ──> Wine ──> app.exe
+browser ──HTTPS──> Railway/Render ──> noVNC (websockify :$PORT) ──> x11vnc ──> Xvfb (:99) ──> Wine ──> your .exe
 ```
 
-- `Dockerfile` — Debian + WineHQ (32/64-bit), Xvfb, x11vnc, noVNC
-- `start.sh` — boots the virtual display, VNC, Wine prefix, your app, and the web client
-  on Railway's `$PORT`
+## Honest limitations
 
-## Honest limitations (read before relying on this)
-
-- **Not every .exe runs under Wine.** Simple apps usually work; apps with kernel
-  drivers, anticheat, or deep Windows integration often don't. Test yours.
-- **GUI over the browser is laggy** compared to a real Windows desktop — fine for
-  clicking through an app, not for gaming/video.
-- **Railway is not free:** one-time $5 trial credit (30 days), then paid plans
-  (Hobby $5/month). Trial services are capped at 2 vCPU / 1 GB RAM.
-- **No persistence:** files saved inside the container disappear on redeploy.
-  Mount a Railway volume if you need files to survive.
-- If your app needs extra Windows components (fonts, .NET, Visual C++ runtimes),
-  install them with `winetricks` — open a shell in the running container, or extend
-  the Dockerfile.
-
-## Why not full Windows on Railway?
-
-Windows needs `/dev/kvm` (hardware virtualization). Railway's shared containers don't
-provide it — a real Windows VM there would be unusably slow even if it booted.
-Wine sidesteps this: no VM, the `.exe` runs as a Linux process.
+- **Wine ≠ Windows.** Check [Wine AppDB](https://appdb.winehq.org/) for your app.
+  Simple Win32 apps usually work; .NET apps may need `winetricks dotnet48`;
+  drivers, anticheat, and deep OS integration do not work.
+- **RAM:** Wine + app needs ~200-300MB. Fine on Railway trial; tight but OK on
+  Render's 512MB free tier for light apps.
+- **No GPU.** Anything needing 3D acceleration will fail or fall back to software.
+- **Laggy GUI** over the browser vs a real desktop — fine for utilities.
+- **No persistence.** Files in the container vanish on redeploy.
+- **Render sleeps** after 15 min idle (cold start ~60s).
