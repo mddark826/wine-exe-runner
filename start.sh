@@ -35,10 +35,10 @@ sleep 2
 
 if [ -f /app/app.exe ]; then
   echo "Launching app.exe under Wine..."
-  wine /app/app.exe >/tmp/app.log 2>&1 &
+  ( wine /app/app.exe 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
 else
   echo "No app.exe found: opening Wine Explorer. Set the APP_URL variable or bake app.exe into the image and redeploy."
-  wine explorer >/tmp/app.log 2>&1 &
+  ( wine explorer 2>&1 | tee /tmp/app.log ) &
 fi
 
 PORT=${PORT:-8080}
