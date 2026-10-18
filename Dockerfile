@@ -16,7 +16,7 @@ RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get install -y --install-recommends winehq-stable && \
     apt-get install -y --no-install-recommends \
-        xvfb x11vnc novnc websockify curl cabextract x11-utils procps && \
+        xvfb x11vnc novnc websockify curl cabextract x11-utils procps p7zip-full && \
     wget -O /usr/local/bin/winetricks https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks && \
     chmod +x /usr/local/bin/winetricks && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -26,12 +26,18 @@ RUN useradd -m -s /bin/bash wineuser && \
     mkdir -p /app /home/wineuser/.wine && \
     chown -R wineuser:wineuser /app /home/wineuser
 
-# Bake the .exe into the image at build time (non-fatal; APP_URL runtime download is the fallback).
+# Bake the FULL Traffic Spirit package (exe + support files) into the image.
+# Download the official 7z, extract with the published password to /app/ipts/.
+# Non-fatal: APP_URL runtime download is the fallback.
 # NOTE: the download URL below is visible to anyone who can see this public repo.
-RUN (curl -L --fail --retry 2 --max-time 900 -o /app/app.exe "https://drive.usercontent.google.com/download?id=1GhYkuWIAqZX0yiO78kDshXeFp1FADfBN&export=download&confirm=t" && \
-    chown wineuser:wineuser /app/app.exe && \
-    echo "Baked app.exe into the image") || \
-    echo "WARNING: build-time app.exe download failed; will retry via APP_URL at runtime"
+RUN mkdir -p /app/ipts && \
+    (curl -L --fail --retry 2 --max-time 900 -o /tmp/ipts.7z "http://dlc.ipts.com/v5/ipts.7z" && \
+    7z x -p"ipts123" -o/app/ipts /tmp/ipts.7z >/dev/null && \
+    rm -f /tmp/ipts.7z && \
+    chown -R wineuser:wineuser /app/ipts && \
+    ls /app/ipts && \
+    echo "Baked Traffic Spirit into /app/ipts") || \
+    echo "WARNING: Traffic Spirit download/extract failed; will try APP_URL at runtime"
 
 COPY start.sh /start.sh
 RUN chmod +x /start.sh && chown wineuser:wineuser /start.sh
