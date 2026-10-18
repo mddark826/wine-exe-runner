@@ -7,15 +7,26 @@ export WINEPREFIX=/home/wineuser/.wine
 
 mkdir -p /app
 
-# Fetch the .exe at runtime if APP_URL is set and no app.exe exists yet.
+# Resolve which exe to launch (override with APP_EXE).
+# Default: baked full Traffic Spirit package if present, else /app/app.exe
+# (used by the APP_URL download path and legacy single-exe bakes).
+if [ -z "${APP_EXE:-}" ]; then
+  if [ -f /app/ipts/ipts.exe ]; then
+    APP_EXE=/app/ipts/ipts.exe
+  else
+    APP_EXE=/app/app.exe
+  fi
+fi
+
+# Fetch the .exe at runtime if APP_URL is set and the target exe is missing.
 # Non-fatal: a failed download must never kill the container (would cause a crash loop).
-if [ ! -f /app/app.exe ] && [ -n "$APP_URL" ]; then
-  echo "Downloading app.exe from APP_URL..."
-  if curl -L --fail --retry 3 --max-time 900 -o /app/app.exe "$APP_URL"; then
+if [ ! -f "$APP_EXE" ] && [ -n "${APP_URL:-}" ]; then
+  echo "Downloading $(basename "$APP_EXE") from APP_URL..."
+  if curl -L --fail --retry 3 --max-time 900 -o "$APP_EXE" "$APP_URL"; then
     echo "Download complete."
   else
-    echo "WARNING: app.exe download failed; continuing without it."
-    rm -f /app/app.exe
+    echo "WARNING: download failed; continuing without it."
+    rm -f "$APP_EXE"
   fi
 fi
 
@@ -39,12 +50,12 @@ sleep 2
 # Plain Windows apps simply ignore unknown flags, so these defaults are safe.
 APP_ARGS=${APP_ARGS:---no-sandbox --disable-gpu --disable-dev-shm-usage}
 
-if [ -f /app/app.exe ]; then
-  echo "Launching app.exe under Wine..."
+if [ -f "$APP_EXE" ]; then
+  echo "Launching $APP_EXE under Wine..."
   # shellcheck disable=SC2086
-  ( wine /app/app.exe $APP_ARGS 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
+  ( wine "$APP_EXE" $APP_ARGS 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
 else
-  echo "No app.exe found: opening Wine Explorer. Set the APP_URL variable or bake app.exe into the image and redeploy."
+  echo "No exe found (tried $APP_EXE): opening Wine Explorer. Set APP_URL/APP_EXE or rebake the image."
   ( wine explorer 2>&1 | tee /tmp/app.log ) &
 fi
 
