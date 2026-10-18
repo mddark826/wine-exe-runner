@@ -36,6 +36,9 @@ if [ ! -f "$WINEPREFIX/system.reg" ]; then
   wineboot --init >/tmp/wineboot.log 2>&1 || true
 fi
 
+# Emulate Windows 10 (some apps crash on Wine's default Win7 mode)
+wine reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f >/dev/null 2>&1 || true
+
 echo "Starting virtual display..."
 Xvfb :99 -screen 0 1280x800x24 >/tmp/xvfb.log 2>&1 &
 sleep 2
@@ -53,7 +56,7 @@ APP_ARGS=${APP_ARGS:---no-sandbox --disable-gpu --disable-dev-shm-usage}
 if [ -f "$APP_EXE" ]; then
   echo "Launching $APP_EXE under Wine..."
   # shellcheck disable=SC2086
-  ( wine "$APP_EXE" $APP_ARGS 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
+  ( cd "$(dirname "$APP_EXE")" && wine "$APP_EXE" $APP_ARGS 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
 else
   echo "No exe found (tried $APP_EXE): opening Wine Explorer. Set APP_URL/APP_EXE or rebake the image."
   ( wine explorer 2>&1 | tee /tmp/app.log ) &
