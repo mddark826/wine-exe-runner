@@ -33,9 +33,16 @@ echo "Starting VNC server..."
 x11vnc -display :99 -nopw -listen localhost -forever -shared -rfbport 5900 -xkb -ncache 10 >/tmp/x11vnc.log 2>&1 &
 sleep 2
 
+# Extra command-line flags for the .exe. Override with the APP_ARGS variable.
+# Defaults fix Chromium/Electron/CEF-based apps under Wine+Xvfb (no GPU here,
+# and Chromium's sandbox fails under Wine -> black window or instant crash).
+# Plain Windows apps simply ignore unknown flags, so these defaults are safe.
+APP_ARGS=${APP_ARGS:---no-sandbox --disable-gpu --disable-dev-shm-usage}
+
 if [ -f /app/app.exe ]; then
   echo "Launching app.exe under Wine..."
-  ( wine /app/app.exe 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
+  # shellcheck disable=SC2086
+  ( wine /app/app.exe $APP_ARGS 2>&1 | tee /tmp/app.log; echo "WINELAUNCH: wine exited with code ${PIPESTATUS[0]}" ) &
 else
   echo "No app.exe found: opening Wine Explorer. Set the APP_URL variable or bake app.exe into the image and redeploy."
   ( wine explorer 2>&1 | tee /tmp/app.log ) &
