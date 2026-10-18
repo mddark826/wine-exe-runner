@@ -39,9 +39,10 @@ x11vnc -display :99 -nopw -listen localhost -forever -shared -rfbport 5900 -xkb 
 sleep 2
 
 # Extra flags for the exe (override with APP_ARGS).
-# Defaults help Chromium/Electron apps under Wine+Xvfb; harmless for other apps
-# (plain Win32 apps ignore unknown flags).
-APP_ARGS=${APP_ARGS:---no-sandbox --disable-gpu --disable-dev-shm-usage}
+# Default is EMPTY: plain Win32 apps (PuTTY, Notepad++) reject unknown flags.
+# For Chromium/Electron apps under Wine+Xvfb, set APP_ARGS to:
+#   --no-sandbox --disable-gpu --disable-dev-shm-usage
+APP_ARGS=${APP_ARGS:-}
 
 if [ -f "$APP_EXE" ]; then
   echo "Launching $APP_EXE under Wine..."
