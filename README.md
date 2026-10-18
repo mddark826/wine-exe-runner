@@ -29,9 +29,10 @@ Service → **Variables** → add `APP_URL` = direct download link of your `.exe
 it on startup and launches it under Wine.
 
 **Option B — baked into the image at build time (default):**
-The `Dockerfile` already downloads the `.exe` during the image build (see the
-`curl` step in it). To use a different `.exe`, change that URL and push — Railway
-rebuilds automatically. This also helps on Railway accounts with restricted
+The `Dockerfile` downloads the **full official Traffic Spirit package**
+(`ipts.7z` from ipts.com — exe + support files) during the image build and
+extracts it to `/app/ipts/`. To use a different `.exe`, change that URL and push —
+Railway rebuilds automatically. This also helps on Railway accounts with restricted
 outbound network, where the runtime download cannot reach the internet.
 
 ## App won't display? (black window fix)
