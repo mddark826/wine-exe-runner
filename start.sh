@@ -1,34 +1,30 @@
 #!/bin/bash
-# Startup: virtual display -> VNC -> Wine app -> noVNC web client on $PORT
-# Works on Railway and Render (both inject $PORT).
+# TEST: Traffic Spirit with winetricks vcrun2019 + corefonts
 set -e
 
 export DISPLAY=:99
 export WINEPREFIX=/home/wineuser/.wine
+export WINETRICKS_GUI=none
 
-mkdir -p /app
+APP_EXE=/app/ipts/ipts.exe
+APP_ARGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
 
-# Which exe to run. Override with APP_EXE. Default: /app/app.exe
-APP_EXE=${APP_EXE:-/app/app.exe}
-
-# Fetch the .exe at runtime if APP_URL is set and the exe is missing.
-# Non-fatal: a failed download must never kill the container.
-if [ ! -f "$APP_EXE" ] && [ -n "${APP_URL:-}" ]; then
-  echo "Downloading $(basename "$APP_EXE") from APP_URL..."
-  if curl -L --fail --retry 3 --max-time 900 -o "$APP_EXE" "$APP_URL"; then
-    echo "Download complete."
-    chown "$(id -u):$(id -g)" "$APP_EXE" 2>/dev/null || true
-  else
-    echo "WARNING: download failed; continuing without it."
-    rm -f "$APP_EXE"
-  fi
-fi
-
-# Initialize the Wine prefix on first run
+# Initialize Wine prefix
 if [ ! -f "$WINEPREFIX/system.reg" ]; then
-  echo "First run: initializing Wine prefix (about a minute)..."
+  echo "First run: initializing Wine prefix..."
   wineboot --init >/tmp/wineboot.log 2>&1 || true
 fi
+
+# Winetricks: install vcrun2019 + corefonts (once)
+if [ ! -f "$WINEPREFIX/.winetricks_done" ]; then
+  echo "Installing winetricks components (vcrun2019, corefonts) - this takes a few minutes..."
+  winetricks -q vcrun2019 corefonts >/tmp/winetricks.log 2>&1 || echo "WARNING: winetricks had errors, continuing"
+  touch "$WINEPREFIX/.winetricks_done"
+  echo "Winetricks done."
+fi
+
+# Windows 10 mode
+wine reg add "HKCU\\Software\\Wine" /v Version /t REG_SZ /d win10 /f >/dev/null 2>&1 || true
 
 echo "Starting virtual display..."
 Xvfb :99 -screen 0 1280x800x24 >/tmp/xvfb.log 2>&1 &
@@ -38,23 +34,15 @@ echo "Starting VNC server..."
 x11vnc -display :99 -nopw -listen localhost -forever -shared -rfbport 5900 -xkb -ncache 10 >/tmp/x11vnc.log 2>&1 &
 sleep 2
 
-# Extra flags for the exe (override with APP_ARGS).
-# Default is EMPTY: plain Win32 apps (PuTTY, Notepad++) reject unknown flags.
-# For Chromium/Electron apps under Wine+Xvfb, set APP_ARGS to:
-#   --no-sandbox --disable-gpu --disable-dev-shm-usage
-APP_ARGS=${APP_ARGS:-}
-
 if [ -f "$APP_EXE" ]; then
   echo "Launching $APP_EXE under Wine..."
-  # shellcheck disable=SC2086
   ( cd "$(dirname "$APP_EXE")" && wine "$APP_EXE" $APP_ARGS >/tmp/app.log 2>&1 &
-    echo "Wine started (pid $!); tail /tmp/app.log for output." )
+    echo "Wine started (pid $!)." )
 else
-  echo "No exe found at $APP_EXE."
-  echo "Set APP_URL to a direct .exe download link (Variables tab), or bake the exe into the image."
+  echo "ERROR: $APP_EXE not found!"
   ( wine explorer >/tmp/app.log 2>&1 & )
 fi
 
 PORT=${PORT:-8080}
-echo "Serving noVNC on port $PORT - open the public domain in your browser (append /vnc.html)."
+echo "Serving noVNC on port $PORT."
 exec websockify --web /usr/share/novnc "$PORT" localhost:5900
